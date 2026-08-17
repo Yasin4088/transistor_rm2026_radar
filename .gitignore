@@ -1,5 +1,9 @@
-runs/
-flash_attn-2.7.4+cu124torch2.5-cp312-cp312-win_amd64.whl
 .vscode/
+
+# 编译产物
 __pycache__/
-tools/livox_sdk/build/
+build/
+log/
+install/
+# whitelist
+!build/notes.txt
