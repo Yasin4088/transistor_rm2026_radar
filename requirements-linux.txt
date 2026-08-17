@@ -22,7 +22,6 @@ einops==0.8.1
 fastapi==0.116.1
 ffmpy==0.6.1
 filelock==3.19.1
-flash_attn @ file:///D:/Code/new/PythonProjects/rm2026/radar/flash_attn-2.7.4%2Bcu124torch2.5-cp312-cp312-win_amd64.whl#sha256=0c4f46374bdf3ae0833948256106e5c425d9bc54bad3fb341e66b986355df2ea
 flatbuffers==25.2.10
 fonttools==4.56.0
 fsspec==2025.7.0
@@ -78,7 +77,6 @@ pyparsing==3.2.1
 PyQt5==5.15.11
 PyQt5-Qt5==5.15.2
 PyQt5_sip==12.17.0
-pyreadline3==3.5.4
 pyserial==3.5
 python-dateutil==2.9.0.post0
 python-multipart==0.0.20
