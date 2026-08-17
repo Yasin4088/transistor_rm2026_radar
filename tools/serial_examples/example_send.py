@@ -4,7 +4,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src", "communication"))
 
 import serial
-from RM_serial_py.ser_api import build_data_radar, build_send_packet, build_data_decision
+from ser_api import build_data_radar, build_send_packet, build_data_decision
 
 # 发送示例
 ser = serial.Serial('COM19', 115200, timeout=1)  # 根据实际情况修改串口号和波特率

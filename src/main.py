@@ -48,14 +48,14 @@ def main():
     camera.set_gain(16.0)  # 设置增益为10dB
     camera.start_grabbing()
 
-    #car_model_path = os.path.join(BASE_DIR, "tools", "model_export", "rmCar_yolov12n.pt")
-    car_model_path = os.path.join(BASE_DIR, "model", "openvino", "rmCar_yolov12n_int8_openvino_model")
+    #car_model_path = os.path.join(BASE_DIR, "model", "rmCar_yolov12n_int8_openvino_model", "rmCar_yolov12n.pt")
+    car_model_path = os.path.join(BASE_DIR, "model", "rmCar_yolov12n_int8_openvino_model")
     car_conf_threshold = 0.25
     car_model = YOLO(car_model_path)
     #car_model.export(format="openvino",int8=True)
 
-    #armor_model_path = os.path.join(BASE_DIR, "tools", "model_export", "rmArmor_yolov12n.pt")
-    armor_model_path = os.path.join(BASE_DIR, "model", "openvino", "rmArmor_yolov12n_int8_openvino_model")
+    #armor_model_path = os.path.join(BASE_DIR, "model", "rmArmor_yolov12n_int8_openvino_model", "rmArmor_yolov12n.pt")
+    armor_model_path = os.path.join(BASE_DIR, "model", "rmArmor_yolov12n_int8_openvino_model")
     armor_conf_threshold = 0.5
     armor_model = YOLO(armor_model_path)
     #armor_model.export(format="openvino",int8=True)

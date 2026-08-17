@@ -8,7 +8,7 @@ import numpy as np
 import sys, os
 sys.path.append(os.path.dirname(__file__))
 
-from RM_serial_py.ser_api import  build_send_packet, receive_packet, Radar_decision, \
+from ser_api import  build_send_packet, receive_packet, Radar_decision, \
     build_data_decision, build_data_radar_all
 
 from FakeSerial import FakeSerial_Radar

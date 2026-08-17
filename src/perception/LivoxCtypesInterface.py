@@ -31,7 +31,7 @@ class LivoxInterface:
         self.integrateTempTimes = []
         self.integrateResult = np.zeros((0, 5))
         self.integrateResult_rad = np.zeros((0, 5))
-        current_path = os.path.dirname(os.path.abspath(__file__))
+        current_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib")
         lib_name = "livox_python_interface.dll" if platform.system() == "Windows" else "liblivox_python_interface.so"
         self.lib = ctypes.CDLL(os.path.join(current_path, lib_name))
 
