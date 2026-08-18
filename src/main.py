@@ -37,7 +37,9 @@ yolo_cls_to_communicator_cls = {
 def main():
     # 保证 finally 中即使初始化中途失败也能安全判断
     livoxInterface = None
+    livoxThread = None
     camera = None
+    communicator = None
     try:
         livoxInterface = LivoxInterface()
         livoxInterface.pyif_Init()
@@ -119,10 +121,28 @@ def main():
                 img_mapToRad = cv2.resize(img_mapToRad, (800, 800))
                 cv2.imshow("Camera mapToRad", img_mapToRad)
 
-            if cv2.waitKey(1) & 0xFF == 27:  # 按下 ESC 键退出
+            # 所有 cv2 窗口统一由主线程渲染（其他线程只负责生成图像），
+            # 避免多线程同时调用 cv2.imshow/waitKey 导致 OpenCV 高GUI 卡死/崩溃
+            map_visualization = communicator.get_latest_map_visualization()
+            if map_visualization is not None:
+                map_title, map_image = map_visualization
+                cv2.imshow(map_title, map_image)
+            info_image = communicator.get_latest_info_image()
+            if info_image is not None:
+                cv2.imshow("information_ui", info_image)
+
+            key = cv2.waitKey(1) & 0xFF
+            if key == 27 or key == ord('q'):  # 按下 ESC 或 q 退出
                 break
+    except KeyboardInterrupt:
+        print("\n[main] 收到 Ctrl+C，正在安全退出...")
     finally:
-        # 无论正常退出（ESC）还是异常退出（如 Ctrl+C），都按初始化相反的顺序释放资源,保证安全退出
+        # 无论正常退出（ESC/q）还是异常退出（如 Ctrl+C），都按初始化相反的顺序释放资源,保证安全退出
+        if communicator is not None:
+            try:
+                communicator.stop()
+            except Exception as e:
+                print(f"[main] 通信器释放失败: {e}")
         if camera is not None:
             try:
                 camera.stop_grabbing()
@@ -130,6 +150,16 @@ def main():
                 print(f"[main] 相机释放失败: {e}")
         cv2.destroyAllWindows()
         if livoxInterface is not None:
+            # 先停止 Livox 后台线程再 Uninit，避免线程与 C 侧资源释放竞争导致卡死/崩溃
+            try:
+                livoxInterface.stop()
+            except Exception as e:
+                print(f"[main] Livox 线程停止失败: {e}")
+            if livoxThread is not None:
+                try:
+                    livoxThread.join(timeout=2)
+                except Exception as e:
+                    print(f"[main] Livox 线程等待失败: {e}")
             try:
                 livoxInterface.pyif_Uninit()
             except Exception as e:

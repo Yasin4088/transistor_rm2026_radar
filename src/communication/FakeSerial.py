@@ -1,4 +1,5 @@
 import struct
+import threading
 import numpy as np
 import cv2
 from PIL import Image
@@ -78,8 +79,11 @@ class map_robot_data_t_py:
                 cv2.circle(map_image, visualize_position, 5, (0,255,0), -1)
                 cv2.putText(map_image, f"Sentry({self.sentry_position_x},{self.sentry_position_y})", (visualize_position[0]+10, visualize_position[1]), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,255,0))
             map_image = cv2.resize(map_image, (700, 375))
-            cv2.imshow(f"FakeSerialVisualize | real_serial : {real_serial.port if real_serial else 'None'}", map_image)
-            cv2.waitKey(1) 
+            # 注意：不能在本线程直接调用 cv2.imshow/cv2.waitKey。
+            # OpenCV 高GUI（Qt/GTK）非线程安全，多个线程同时调用会导致进程卡死或崩溃，
+            # 这里只把图像返回给调用方，由主线程统一渲染。
+            return map_image
+        return None
 
 class FakeSerial_Radar:
     def __init__(self, print_info_TX = True, print_info_RX = True, visualize = True, real_serial = None):
@@ -91,6 +95,10 @@ class FakeSerial_Radar:
         self.real_serial = real_serial
         self.real_serial_data_temp = b""
         self.real_serial_data_temp_max_len = 1024
+        # 后台线程只负责生成图像，主线程统一调用 cv2.imshow 渲染，避免多线程操作 OpenCV GUI 崩溃
+        self._visualize_lock = threading.Lock()
+        self.latest_map_image = None
+        self.latest_map_title = None
 
     def write(self, packet):
         if self.real_serial:
@@ -129,7 +137,18 @@ class FakeSerial_Radar:
                 info_to_print += ("TX frame_tail Error")
             print(info_to_print)
         map_robot_data_py = map_robot_data_t_py(data)
-        map_robot_data_py.print_infos(print_info = self.print_info_TX, visualize = self.visualize, map_image = self.map_image.copy(), real_serial = self.real_serial)
+        map_image = map_robot_data_py.print_infos(print_info = self.print_info_TX, visualize = self.visualize, map_image = self.map_image.copy(), real_serial = self.real_serial)
+        if map_image is not None:
+            with self._visualize_lock:
+                self.latest_map_image = map_image
+                self.latest_map_title = f"FakeSerialVisualize | real_serial : {self.real_serial.port if self.real_serial else 'None'}"
+
+    def get_latest_map_image(self):
+        """返回 (窗口标题, 图像)，供主线程渲染；没有可显示图像时返回 None"""
+        with self._visualize_lock:
+            if self.latest_map_image is None:
+                return None
+            return (self.latest_map_title, self.latest_map_image)
     
     def read_all(self):
         if self.real_serial:

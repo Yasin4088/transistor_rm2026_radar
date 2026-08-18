@@ -17,6 +17,7 @@ from SemiAutoSerialPort import semi_auto_serial_port
 class Communicator:
     def __init__(self, state = 'B', visualize_map = True, visualize_information = True, allow_no_serial = False):
         self.state = state  # R:红方/B:蓝方
+        self.running = True  # 控制后台线程退出，供主程序安全退出时调用 stop()
         # 初始化战场信息UI（标记进度、双倍易伤次数、双倍易伤触发状态）
         self.double_vulnerability_chance = -1  # 双倍易伤机会数
         self.opponent_double_vulnerability = -1  # 是否正在触发双倍易伤
@@ -116,7 +117,7 @@ class Communicator:
         thread_draw.start()
 
     def draw_information_ui_thread(self):
-        while True:
+        while self.running:
             self.information_ui.draw(self.state, self.progress_list, self.double_vulnerability_chance, self.opponent_double_vulnerability)
             time.sleep(0.05)
 
@@ -201,7 +202,7 @@ class Communicator:
             "B6": (0, 0),
             "B7": (0, 0)
         }
-        while True:
+        while self.running:
             guess_time_limit = 3 + 1.7  # 单位：秒，根据上一帧的信道占用数动态调整单点预测时间
             # print(guess_time_limit)
             send_count = 0  # 重置信道占用数
@@ -331,7 +332,7 @@ class Communicator:
         vulnerability_cmd_id = [0x02, 0x0E]  # 双倍易伤次数和触发状态
         target_cmd_id = [0x01, 0x05]  # 飞镖目标
         buffer = b''  # 初始化缓冲区
-        while True:
+        while self.running:
             # 从串口读取数据
             received_data = self.ser1.read_all()  # 读取一秒内收到的所有串口数据
             # 将读取到的数据添加到缓冲区中
@@ -395,6 +396,22 @@ class Communicator:
     
     def add_data(self, name, x, y): # 单位 mm
         self.filter.add_data(name, x, y)
+
+    def stop(self):
+        """通知所有后台线程退出（发送/接收/信息UI），供主程序安全退出时调用"""
+        self.running = False
+
+    def get_latest_map_visualization(self):
+        """获取 FakeSerial 地图可视化图像 (标题, 图像)，没有则返回 None；由主线程渲染"""
+        if self.ser1 is not None:
+            return self.ser1.get_latest_map_image()
+        return None
+
+    def get_latest_info_image(self):
+        """获取信息UI图像，没有则返回 None；由主线程渲染"""
+        if self.information_ui is not None:
+            return self.information_ui.get_latest_image()
+        return None
 
 # 机器人坐标滤波器（滑动窗口均值滤波）
 class Filter:
@@ -466,6 +483,9 @@ class InformationUI:
             105: "B5",
             106: "B7"
         }
+        self._lock = threading.Lock()
+        self.latest_image = None
+
     def draw(self, state, progress_list, double_vulnerability_chance, opponent_double_vulnerability):
         # 绘制UI
         information_ui_show = np.zeros((500, 420, 3), dtype=np.uint8)
@@ -476,8 +496,14 @@ class InformationUI:
         cv2.putText(information_ui_show, "vulnerability_Triggering: " + str(opponent_double_vulnerability),
                     (10, 400),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        cv2.imshow('information_ui', information_ui_show)
-        cv2.waitKey(1)
+        # 注意：不能在本线程直接调用 cv2.imshow/cv2.waitKey（OpenCV 高GUI 非线程安全，
+        # 多线程同时调用会导致进程卡死/崩溃），这里只保存图像，由主线程统一渲染。
+        with self._lock:
+            self.latest_image = information_ui_show
+
+    def get_latest_image(self):
+        with self._lock:
+            return self.latest_image
     # 绘制裁判系统数据的UI
     def __draw_information_ui(self, bar_list, camp, image):
         cv2.line(image, (300, 0), (300, 300), (0, 150, 0), 2)

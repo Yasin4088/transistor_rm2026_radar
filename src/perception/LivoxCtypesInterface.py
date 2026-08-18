@@ -65,6 +65,7 @@ class LivoxInterface:
         self.py_readTo = 0
         self.py_readCount = 0
         self.py_updatingResult = False
+        self.py_quit = False  # 置 True 后 test() 主循环退出，供程序退出时干净停止后台线程
         self.image2dResult = [np.zeros((self.image2dSize, self.image2dSize, 3), dtype=np.uint8),
                               np.zeros((self.image2dSize, self.image2dSize, 1), dtype=np.uint8)]
 
@@ -92,16 +93,25 @@ class LivoxInterface:
         return results, mask
 
     def readArray0(self):
-        while self.pyif_usedFlag_0.value:
+        # 无雷达连接时 C 侧 pyif_usedFlag_0 永远为 True，此处会一直自旋；
+        # 加上 py_updatingResult 判断，保证停止更新线程时能立即退出，不会卡死。
+        while self.pyif_usedFlag_0.value and self.py_updatingResult:
             time.sleep(0.001)
+        if not self.py_updatingResult:
+            return np.zeros(self.PYIF_PonitDataArrayLen, dtype=[("x", "<i4"), ("y", "<i4"), ("z", "<i4"),
+                                                                ("reflectivity", "u1"), ("tag", "u1")])
         np_array = np.ctypeslib.as_array(self.pyif_ponitDataArray_ptr.contents[0], shape=(self.PYIF_PonitDataArrayLen,)).copy()
         self.pyif_usedFlag_0.value = True
         self.py_readCount += self.PYIF_PonitDataArrayLen
         return np_array
     
     def readArray1(self):
-        while self.pyif_usedFlag_1.value:
+        # 同 readArray0，无雷达时避免永久自旋
+        while self.pyif_usedFlag_1.value and self.py_updatingResult:
             time.sleep(0.001)
+        if not self.py_updatingResult:
+            return np.zeros(self.PYIF_PonitDataArrayLen, dtype=[("x", "<i4"), ("y", "<i4"), ("z", "<i4"),
+                                                                ("reflectivity", "u1"), ("tag", "u1")])
         np_array = np.ctypeslib.as_array(self.pyif_ponitDataArray_ptr.contents[1], shape=(self.PYIF_PonitDataArrayLen,)).copy()
         self.pyif_usedFlag_1.value = True
         self.py_readCount += self.PYIF_PonitDataArrayLen
@@ -122,6 +132,8 @@ class LivoxInterface:
         while self.py_updatingResult:
             if self.py_readTo == 0:
                 xyzrt = self.extractXYZRT(self.readArray0())
+                if not self.py_updatingResult:  # 停止信号已发出，直接退出，不再处理占位数据
+                    break
                 xyzrt[:,0] += self.position_bias[0]
                 xyzrt[:,1] += self.position_bias[1]
                 xyzrt[:,2] += self.position_bias[2]
@@ -130,6 +142,8 @@ class LivoxInterface:
                 self.py_readTo = 1
             elif self.py_readTo == 1:
                 xyzrt = self.extractXYZRT(self.readArray1())
+                if not self.py_updatingResult:  # 同上
+                    break
                 xyzrt[:,0] += self.position_bias[0]
                 xyzrt[:,1] += self.position_bias[1]
                 xyzrt[:,2] += self.position_bias[2]
@@ -242,9 +256,14 @@ class LivoxInterface:
         #    print(f"{self.py_readCount} | {self.pyif_writeCount.value} | {len(self.integrateResult)}")
         #self.endUpdatingThread()
         #self.visualizeNowReslut3d()
-        while True:
+        while not self.py_quit:
             self.draw2dImage()
             """ cv2.imshow("Livox test", self.draw2dImage())
             #print(f"{self.py_readCount} | {self.pyif_writeCount.value} | {len(self.integrateResult)}")
             if cv2.waitKey(1) & 0xFF == 27:  # 按下 ESC 键退出
                 break """
+
+    def stop(self):
+        """停止后台更新/渲染线程，供程序退出前调用（随后应调用 pyif_Uninit）"""
+        self.py_quit = True
+        self.endUpdatingThread()
