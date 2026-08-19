@@ -3,7 +3,7 @@ import os, sys
 # 项目根与源码目录，保证可从任意工作目录启动
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(SRC_DIR)
-for sub_dir in ["perception", "detection", "communication", "third_party"]:
+for sub_dir in ["perception", "communication", "serial_examples", "third_party"]:
     sys.path.insert(0, os.path.join(SRC_DIR, sub_dir))
 
 from LivoxCtypesInterface import LivoxInterface

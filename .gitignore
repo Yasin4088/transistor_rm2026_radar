@@ -9,3 +9,5 @@ install/
 !build/notes.txt
 
 **/test.py
+
+docs/

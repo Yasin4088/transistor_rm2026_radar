@@ -7,6 +7,7 @@ import numpy as np
 
 import sys, os
 sys.path.append(os.path.dirname(__file__))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "serial_examples"))
 
 from ser_api import  build_send_packet, receive_packet, Radar_decision, \
     build_data_decision, build_data_radar_all
