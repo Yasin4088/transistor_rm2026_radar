@@ -51,18 +51,18 @@
 #endif
 
 
-PYIF_EXPORT int pyif_Init();
-PYIF_EXPORT void pyif_Uninit();
-PYIF_EXPORT void pyif_draw2dImageF(double* yaws, double* pitchs, double* values, uint64_t point_number, uint16_t imageSize, uint16_t values_number, double* result, uint8_t* mask);
-#define PYIF_PonitDataArrayLen 4096
+PYIF_EXPORT int pyif_init();
+PYIF_EXPORT void pyif_uninit();
+PYIF_EXPORT void pyif_draw_2d_image(double* yaws, double* pitchs, double* values, uint64_t point_number, uint16_t imageSize, uint16_t values_number, double* result, uint8_t* mask);
+#define PYIF_PointDataArrayLen 4096
 typedef struct {
   int32_t x;            /**< X axis, Unit:mm */
   int32_t y;            /**< Y axis, Unit:mm */
   int32_t z;            /**< Z axis, Unit:mm */
   uint8_t reflectivity; /**< Reflectivity */
   uint8_t tag;          /**< Tag */
-} PYIF_PonitData;
-PYIF_EXPORT PYIF_PonitData pyif_ponitDataArray[2][PYIF_PonitDataArrayLen];
+} PYIF_PointData;
+PYIF_EXPORT PYIF_PointData pyif_pointDataArray[2][PYIF_PointDataArrayLen];
 PYIF_EXPORT bool pyif_usedFlag_0 = true;
 PYIF_EXPORT bool pyif_usedFlag_1 = true;
 uint8_t pyif_writeTo = 0;
@@ -100,7 +100,7 @@ char broadcast_code_list[kMaxLidarCount][kBroadcastCodeSize] = {
 };*/
 
 /** Receiving error message from Livox Lidar. */
-void OnLidarErrorStatusCallback(livox_status status, uint8_t handle, ErrorMessage *message) {
+void on_lidar_error_status_callback(livox_status status, uint8_t handle, ErrorMessage *message) {
   static uint32_t error_message_count = 0;
   if (message != NULL) {
     ++error_message_count;
@@ -122,7 +122,7 @@ void OnLidarErrorStatusCallback(livox_status status, uint8_t handle, ErrorMessag
 }
 
 /** Receiving point cloud data from Livox LiDAR. */
-void GetLidarData(uint8_t handle, LivoxEthPacket *data, uint32_t data_num, void *client_data) {
+void get_lidar_data(uint8_t handle, LivoxEthPacket *data, uint32_t data_num, void *client_data) {
   if (data) {
     data_recveive_count[handle] ++ ;
     /** Parsing the timestamp and the point cloud data. */
@@ -131,7 +131,7 @@ void GetLidarData(uint8_t handle, LivoxEthPacket *data, uint32_t data_num, void 
         
         LivoxDualExtendRawPoint *p_point_data = (LivoxDualExtendRawPoint *)(data->data + data_index*sizeof(LivoxDualExtendRawPoint));
 
-        PYIF_PonitData data_to_check;
+        PYIF_PointData data_to_check;
         data_to_check.x = p_point_data -> x1;
         data_to_check.y = p_point_data -> y1;
         data_to_check.z = p_point_data -> z1;
@@ -139,13 +139,13 @@ void GetLidarData(uint8_t handle, LivoxEthPacket *data, uint32_t data_num, void 
         data_to_check.tag = p_point_data -> tag1;
         if (data_to_check.x != 0 || data_to_check.y != 0 || data_to_check.z != 0) {
           pyif_writeCount += 1;
-          pyif_ponitDataArray[pyif_writeTo][pyif_writeIndex].x = data_to_check.x;
-          pyif_ponitDataArray[pyif_writeTo][pyif_writeIndex].y = data_to_check.y;
-          pyif_ponitDataArray[pyif_writeTo][pyif_writeIndex].z = data_to_check.z;
-          pyif_ponitDataArray[pyif_writeTo][pyif_writeIndex].reflectivity = data_to_check.reflectivity;
-          pyif_ponitDataArray[pyif_writeTo][pyif_writeIndex].tag = data_to_check.tag;
+          pyif_pointDataArray[pyif_writeTo][pyif_writeIndex].x = data_to_check.x;
+          pyif_pointDataArray[pyif_writeTo][pyif_writeIndex].y = data_to_check.y;
+          pyif_pointDataArray[pyif_writeTo][pyif_writeIndex].z = data_to_check.z;
+          pyif_pointDataArray[pyif_writeTo][pyif_writeIndex].reflectivity = data_to_check.reflectivity;
+          pyif_pointDataArray[pyif_writeTo][pyif_writeIndex].tag = data_to_check.tag;
           pyif_writeIndex += 1;
-          if (pyif_writeIndex >= PYIF_PonitDataArrayLen) {
+          if (pyif_writeIndex >= PYIF_PointDataArrayLen) {
             if (pyif_writeTo == 0) {
               pyif_usedFlag_0 = false;
               pyif_writeTo = 1;
@@ -163,13 +163,13 @@ void GetLidarData(uint8_t handle, LivoxEthPacket *data, uint32_t data_num, void 
         data_to_check.tag = p_point_data -> tag2;
         if (data_to_check.x != 0 || data_to_check.y != 0 || data_to_check.z != 0) {
           pyif_writeCount += 1;
-          pyif_ponitDataArray[pyif_writeTo][pyif_writeIndex].x = data_to_check.x;
-          pyif_ponitDataArray[pyif_writeTo][pyif_writeIndex].y = data_to_check.y;
-          pyif_ponitDataArray[pyif_writeTo][pyif_writeIndex].z = data_to_check.z;
-          pyif_ponitDataArray[pyif_writeTo][pyif_writeIndex].reflectivity = data_to_check.reflectivity;
-          pyif_ponitDataArray[pyif_writeTo][pyif_writeIndex].tag = data_to_check.tag;
+          pyif_pointDataArray[pyif_writeTo][pyif_writeIndex].x = data_to_check.x;
+          pyif_pointDataArray[pyif_writeTo][pyif_writeIndex].y = data_to_check.y;
+          pyif_pointDataArray[pyif_writeTo][pyif_writeIndex].z = data_to_check.z;
+          pyif_pointDataArray[pyif_writeTo][pyif_writeIndex].reflectivity = data_to_check.reflectivity;
+          pyif_pointDataArray[pyif_writeTo][pyif_writeIndex].tag = data_to_check.tag;
           pyif_writeIndex += 1;
-          if (pyif_writeIndex >= PYIF_PonitDataArrayLen) {
+          if (pyif_writeIndex >= PYIF_PointDataArrayLen) {
             if (pyif_writeTo == 0) {
               pyif_usedFlag_0 = false;
               pyif_writeTo = 1;
@@ -190,8 +190,8 @@ void GetLidarData(uint8_t handle, LivoxEthPacket *data, uint32_t data_num, void 
 }
 
 /** Callback function of starting sampling. */
-void OnSampleCallback(livox_status status, uint8_t handle, uint8_t response, void *data) {
-  printf("OnSampleCallback statue %d handle %d response %d \n", status, handle, response);
+void on_sample_callback(livox_status status, uint8_t handle, uint8_t response, void *data) {
+  printf("on_sample_callback statue %d handle %d response %d \n", status, handle, response);
   if (status == kStatusSuccess) {
     if (response != 0) {
       devices[handle].device_state = kDeviceStateConnect;
@@ -202,11 +202,11 @@ void OnSampleCallback(livox_status status, uint8_t handle, uint8_t response, voi
 }
 
 /** Callback function of stopping sampling. */
-void OnStopSampleCallback(livox_status status, uint8_t handle, uint8_t response, void *data) {
+void on_stop_sample_callback(livox_status status, uint8_t handle, uint8_t response, void *data) {
 }
 
 /** Query the firmware version of Livox LiDAR. */
-void OnDeviceInformation(livox_status status, uint8_t handle, DeviceInformationResponse *ack, void *data) {
+void on_device_information(livox_status status, uint8_t handle, DeviceInformationResponse *ack, void *data) {
   if (status != kStatusSuccess) {
     printf("Device Query Informations Failed %d\n", status);
   }
@@ -219,27 +219,27 @@ void OnDeviceInformation(livox_status status, uint8_t handle, DeviceInformationR
   }
 }
 
-void LidarConnect(const DeviceInfo *info) {
+void lidar_connect(const DeviceInfo *info) {
   uint8_t handle = info->handle;
-  QueryDeviceInformation(handle, OnDeviceInformation, NULL);
+  QueryDeviceInformation(handle, on_device_information, NULL);
   if (devices[handle].device_state == kDeviceStateDisconnect) {
     devices[handle].device_state = kDeviceStateConnect;
     devices[handle].info = *info;
   }
 }
 
-void LidarDisConnect(const DeviceInfo *info) {
+void lidar_disconnect(const DeviceInfo *info) {
   uint8_t handle = info->handle;
   devices[handle].device_state = kDeviceStateDisconnect;
 }
 
-void LidarStateChange(const DeviceInfo *info) {
+void lidar_state_change(const DeviceInfo *info) {
   uint8_t handle = info->handle;
   devices[handle].info = *info;
 }
 
 /** Callback function of changing of device state. */
-void OnDeviceInfoChange(const DeviceInfo *info, DeviceEvent type) {
+void on_device_info_change(const DeviceInfo *info, DeviceEvent type) {
   if (info == NULL) {
     return;
   }
@@ -249,13 +249,13 @@ void OnDeviceInfoChange(const DeviceInfo *info, DeviceEvent type) {
     return;
   }
   if (type == kEventConnect) {
-    LidarConnect(info);
+    lidar_connect(info);
     printf("[WARNING] Lidar sn: [%s] Connect!!!\n", info->broadcast_code);
   } else if (type == kEventDisconnect) {
-    LidarDisConnect(info);
+    lidar_disconnect(info);
     printf("[WARNING] Lidar sn: [%s] Disconnect!!!\n", info->broadcast_code);
   } else if (type == kEventStateChange) {
-    LidarStateChange(info);
+    lidar_state_change(info);
     printf("[WARNING] Lidar sn: [%s] StateChange!!!\n", info->broadcast_code);
   }
 
@@ -267,9 +267,9 @@ void OnDeviceInfoChange(const DeviceInfo *info, DeviceEvent type) {
       printf("Device State Error Code 0X%08x\n", devices[handle].info.status.status_code.error_code);
     }
     printf("Device feature %d\n", devices[handle].info.feature);
-    SetErrorMessageCallback(handle, OnLidarErrorStatusCallback);
+    SetErrorMessageCallback(handle, on_lidar_error_status_callback);
     if (devices[handle].info.state == kLidarStateNormal) {
-      LidarStartSampling(handle, OnSampleCallback, NULL);
+      LidarStartSampling(handle, on_sample_callback, NULL);
       devices[handle].device_state = kDeviceStateSampling;
     }
   }
@@ -278,7 +278,7 @@ void OnDeviceInfoChange(const DeviceInfo *info, DeviceEvent type) {
 /** Callback function when broadcast message received.
  * You need to add listening device broadcast code and set the point cloud data callback in this function.
  */
-void OnDeviceBroadcast(const BroadcastDeviceInfo *info) {
+void on_device_broadcast(const BroadcastDeviceInfo *info) {
   if (info == NULL || info->dev_type == kDeviceTypeHub) {
     return;
   }
@@ -304,13 +304,13 @@ void OnDeviceBroadcast(const BroadcastDeviceInfo *info) {
   result = AddLidarToConnect(info->broadcast_code, &handle);
   if (result == kStatusSuccess) {
     /** Set the point cloud data for a specific Livox LiDAR. */
-    SetDataCallback(handle, GetLidarData, NULL);
+    SetDataCallback(handle, get_lidar_data, NULL);
     devices[handle].handle = handle;
     devices[handle].device_state = kDeviceStateDisconnect;
   }
 }
 
-int pyif_Init() {
+int pyif_init() {
 
   printf("Livox SDK initializing.\n");
 /** Initialize Livox-SDK. */
@@ -328,12 +328,12 @@ int pyif_Init() {
   memset(data_recveive_count, 0, sizeof(data_recveive_count));
 
 /** Set the callback function receiving broadcast message from Livox LiDAR. */
-  SetBroadcastCallback(OnDeviceBroadcast);
+  SetBroadcastCallback(on_device_broadcast);
 
 /** Set the callback function called when device state change,
  * which means connection/disconnection and changing of LiDAR state.
  */
-  SetDeviceStateUpdateCallback(OnDeviceInfoChange);
+  SetDeviceStateUpdateCallback(on_device_info_change);
 
 /** Start the device discovering routine. */
   if (!Start()) {
@@ -346,13 +346,13 @@ int pyif_Init() {
   return 0;
 }
 
-void pyif_Uninit() {
+void pyif_uninit() {
 
   int i = 0;
   for (i = 0; i < kMaxLidarCount; ++i) {
     if (devices[i].device_state == kDeviceStateSampling) {
 /** Stop the sampling of Livox LiDAR. */
-      LidarStopSampling(devices[i].handle, OnStopSampleCallback, NULL);
+      LidarStopSampling(devices[i].handle, on_stop_sample_callback, NULL);
     }
   }
 
@@ -361,7 +361,7 @@ void pyif_Uninit() {
 
 }
 
-void pyif_draw2dImageF(double* yaws, double* pitchs, double* values, uint64_t point_number, uint16_t imageSize, uint16_t values_number, double* result, uint8_t* mask) {
+void pyif_draw_2d_image(double* yaws, double* pitchs, double* values, uint64_t point_number, uint16_t imageSize, uint16_t values_number, double* result, uint8_t* mask) {
   for (uint64_t point_index = 0; point_index < point_number; point_index += 1) {
     double value = values[point_index];
     for (uint16_t values_index = 0; values_index < values_number; values_index += 1) {
@@ -377,7 +377,7 @@ void pyif_draw2dImageF(double* yaws, double* pitchs, double* values, uint64_t po
 
 /* int main(int argc, const char *argv[]) {
   
-  pyif_Init();
+  pyif_init();
 
 #ifdef WIN32
   Sleep(30000);
@@ -385,6 +385,6 @@ void pyif_draw2dImageF(double* yaws, double* pitchs, double* values, uint64_t po
   sleep(30);
 #endif
 
-  pyif_Uninit();
+  pyif_uninit();
 }
  */

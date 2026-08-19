@@ -10,8 +10,8 @@ import time
 import cv2
 
 
-
-class PYIF_PonitData(ctypes.Structure):
+# 下方函数名命名中pyif均表示python-interface。（livox雷达的python接口）
+class PYIF_PointData(ctypes.Structure):
     _fields_ = [
         ("x", ctypes.c_int32),
         ("y", ctypes.c_int32),
@@ -24,7 +24,7 @@ class PYIF_PonitData(ctypes.Structure):
 class LivoxInterface:
     def __init__(self):
         self.integrate_time = 300 # ms （桑佰毫秒，够吗？应该够吧。来吧，试下米↓↑）
-        self.PYIF_PonitDataArrayLen = 4096
+        self.PYIF_PointDataArrayLen = 4096
         self.image2dSize = 1024
         self.position_bias = (0, 0, 0)
         self.integrateTemp = []
@@ -35,13 +35,13 @@ class LivoxInterface:
         lib_name = "livox_python_interface.dll" if platform.system() == "Windows" else "liblivox_python_interface.so"
         self.lib = ctypes.CDLL(os.path.join(current_path, lib_name))
 
-        self.lib.pyif_Init.argtypes = []  # 设置参数类型
-        self.lib.pyif_Init.restype = ctypes.c_int  # 设置返回类型
+        self.lib.pyif_init.argtypes = []  # 设置参数类型
+        self.lib.pyif_init.restype = ctypes.c_int  # 设置返回类型
 
-        self.lib.pyif_Uninit.argtypes = []  # 设置参数类型
-        self.lib.pyif_Uninit.restype = None  # 设置返回类型
+        self.lib.pyif_uninit.argtypes = []  # 设置参数类型
+        self.lib.pyif_uninit.restype = None  # 设置返回类型
 
-        self.lib.pyif_draw2dImageF.argtypes = [
+        self.lib.pyif_draw_2d_image.argtypes = [
             np.ctypeslib.ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -50,13 +50,13 @@ class LivoxInterface:
             ctypes.c_uint16,
             np.ctypeslib.ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_uint8, flags="C_CONTIGUOUS")]
-        self.lib.pyif_draw2dImageF.restype = None
+        self.lib.pyif_draw_2d_image.restype = None
 
         # 定义二维数组类型
-        ArrayType = PYIF_PonitData * self.PYIF_PonitDataArrayLen * 2  # 2行，每行1000个元素
+        ArrayType = PYIF_PointData * self.PYIF_PointDataArrayLen * 2  # 2行，每行1000个元素
         # 获取全局变量并设置类型
-        pyif_ponitDataArray = getattr(self.lib, "pyif_ponitDataArray")
-        self.pyif_ponitDataArray_ptr = ctypes.cast(pyif_ponitDataArray, ctypes.POINTER(ArrayType))
+        pyif_pointDataArray = getattr(self.lib, "pyif_pointDataArray")
+        self.pyif_pointDataArray_ptr = ctypes.cast(pyif_pointDataArray, ctypes.POINTER(ArrayType))
 
         self.pyif_usedFlag_0 = ctypes.c_bool.in_dll(self.lib, "pyif_usedFlag_0")
         self.pyif_usedFlag_1 = ctypes.c_bool.in_dll(self.lib, "pyif_usedFlag_1")
@@ -69,14 +69,14 @@ class LivoxInterface:
         self.image2dResult = [np.zeros((self.image2dSize, self.image2dSize, 3), dtype=np.uint8),
                               np.zeros((self.image2dSize, self.image2dSize, 1), dtype=np.uint8)]
 
-    def pyif_Init(self):
-        result = self.lib.pyif_Init()
+    def pyif_init(self):
+        result = self.lib.pyif_init()
         return result
 
-    def pyif_Uninit(self):
-        self.lib.pyif_Uninit()
-        
-    def pyif_draw2dImageF(self, yaws, pitchs, fvalues, imageSize = None):
+    def pyif_uninit(self):
+        self.lib.pyif_uninit()
+           
+    def pyif_draw_2d_image(self, yaws, pitchs, fvalues, imageSize = None):
         if not imageSize:
             imageSize = self.image2dSize
         values_number = len(fvalues)
@@ -88,50 +88,50 @@ class LivoxInterface:
         point_number = len(yaws)
         if any([point_number != target for target in [len(pitchs), *[len(fvalue) for fvalue in fvalues]]]):
             raise Exception
-        self.lib.pyif_draw2dImageF(yaws, pitchs, fvalues, point_number, imageSize, values_number, results, mask)
+        self.lib.pyif_draw_2d_image(yaws, pitchs, fvalues, point_number, imageSize, values_number, results, mask)
         results = results.reshape(values_number, imageSize, imageSize, 1)
         return results, mask
 
-    def readArray0(self):
+    def read_array_0(self):
         # 无雷达连接时 C 侧 pyif_usedFlag_0 永远为 True，此处会一直自旋；
         # 加上 py_updatingResult 判断，保证停止更新线程时能立即退出，不会卡死。
         while self.pyif_usedFlag_0.value and self.py_updatingResult:
             time.sleep(0.001)
         if not self.py_updatingResult:
-            return np.zeros(self.PYIF_PonitDataArrayLen, dtype=[("x", "<i4"), ("y", "<i4"), ("z", "<i4"),
+            return np.zeros(self.PYIF_PointDataArrayLen, dtype=[("x", "<i4"), ("y", "<i4"), ("z", "<i4"),
                                                                 ("reflectivity", "u1"), ("tag", "u1")])
-        np_array = np.ctypeslib.as_array(self.pyif_ponitDataArray_ptr.contents[0], shape=(self.PYIF_PonitDataArrayLen,)).copy()
+        np_array = np.ctypeslib.as_array(self.pyif_pointDataArray_ptr.contents[0], shape=(self.PYIF_PointDataArrayLen,)).copy()
         self.pyif_usedFlag_0.value = True
-        self.py_readCount += self.PYIF_PonitDataArrayLen
+        self.py_readCount += self.PYIF_PointDataArrayLen
         return np_array
     
-    def readArray1(self):
-        # 同 readArray0，无雷达时避免永久自旋
+    def read_array_1(self):
+        # 同 read_array_0，无雷达时避免永久自旋
         while self.pyif_usedFlag_1.value and self.py_updatingResult:
             time.sleep(0.001)
         if not self.py_updatingResult:
-            return np.zeros(self.PYIF_PonitDataArrayLen, dtype=[("x", "<i4"), ("y", "<i4"), ("z", "<i4"),
+            return np.zeros(self.PYIF_PointDataArrayLen, dtype=[("x", "<i4"), ("y", "<i4"), ("z", "<i4"),
                                                                 ("reflectivity", "u1"), ("tag", "u1")])
-        np_array = np.ctypeslib.as_array(self.pyif_ponitDataArray_ptr.contents[1], shape=(self.PYIF_PonitDataArrayLen,)).copy()
+        np_array = np.ctypeslib.as_array(self.pyif_pointDataArray_ptr.contents[1], shape=(self.PYIF_PointDataArrayLen,)).copy()
         self.pyif_usedFlag_1.value = True
-        self.py_readCount += self.PYIF_PonitDataArrayLen
+        self.py_readCount += self.PYIF_PointDataArrayLen
         return np_array
     
-    def extractXYZRT(self, np_array):
+    def extract_xyzrt(self, np_array):
         xyzrt_array = np.column_stack((np_array['x'], np_array['y'], np_array['z'], np_array["reflectivity"], np_array["tag"])).astype(np.int32)
         return xyzrt_array
     
-    def xyzToYawPitchR(self, xs, ys, zs, others=[]):
+    def xyz_to_yaw_pitch_r(self, xs, ys, zs, others=[]):
         rs = np.sqrt(np.square(xs) + np.square(ys) + np.square(zs))
         yaws = np.arctan2(-ys, xs)
         pitchs = np.arcsin(zs / rs)
         results = np.column_stack([yaws, pitchs, rs, *others]).reshape(-1, 3+len(others))
         return results
 
-    def updatingThreadFunc(self):
+    def updating_thread_func(self):
         while self.py_updatingResult:
             if self.py_readTo == 0:
-                xyzrt = self.extractXYZRT(self.readArray0())
+                xyzrt = self.extract_xyzrt(self.read_array_0())
                 if not self.py_updatingResult:  # 停止信号已发出，直接退出，不再处理占位数据
                     break
                 xyzrt[:,0] += self.position_bias[0]
@@ -141,7 +141,7 @@ class LivoxInterface:
                 self.integrateTempTimes.append(time.time())
                 self.py_readTo = 1
             elif self.py_readTo == 1:
-                xyzrt = self.extractXYZRT(self.readArray1())
+                xyzrt = self.extract_xyzrt(self.read_array_1())
                 if not self.py_updatingResult:  # 同上
                     break
                 xyzrt[:,0] += self.position_bias[0]
@@ -154,15 +154,15 @@ class LivoxInterface:
                 self.integrateTemp = self.integrateTemp[1:]
                 self.integrateTempTimes = self.integrateTempTimes[1:]
             self.integrateResult = np.stack(self.integrateTemp).reshape(-1, 5)
-            self.integrateResult_rad = self.xyzToYawPitchR(self.integrateResult[:,0], self.integrateResult[:,1], self.integrateResult[:,2], 
+            self.integrateResult_rad = self.xyz_to_yaw_pitch_r(self.integrateResult[:,0], self.integrateResult[:,1], self.integrateResult[:,2], 
                                                            [self.integrateResult[:,3], self.integrateResult[:,4]])
 
-    def startUpdatingThread(self):
+    def start_updating_thread(self):
         self.py_updatingResult = True
-        self.updatingThread = threading.Thread(target=self.updatingThreadFunc, daemon=True)
+        self.updatingThread = threading.Thread(target=self.updating_thread_func, daemon=True)
         self.updatingThread.start()
 
-    def endUpdatingThread(self):
+    def end_updating_thread(self):
         self.py_updatingResult = False
 
     def get_nearest_points(self, rad_center, number):
@@ -202,9 +202,9 @@ class LivoxInterface:
     
     # -------------------------以下为测试代码---------------------------------
 
-    def draw2dImage(self):
+    def draw_2d_image(self):
         image = np.zeros((self.image2dSize, self.image2dSize, 1), dtype=np.uint8)
-        fimages, mask = self.pyif_draw2dImageF(self.integrateResult_rad[:,0], self.integrateResult_rad[:,1], 
+        fimages, mask = self.pyif_draw_2d_image(self.integrateResult_rad[:,0], self.integrateResult_rad[:,1], 
                                                 [self.integrateResult_rad[:,2], self.integrateResult_rad[:,3]])
         #r = (255-np.log(yawPitchR[2]+1)*25)*4
         #r = 255-yawPitchR[2]/100
@@ -240,7 +240,7 @@ class LivoxInterface:
         self.image2dResult = [image, mask]
         return image
 
-    def visualizeNowReslut3d(self):
+    def visualize_now_result_3d(self):
         fig = plt.figure(figsize=(10, 8))
         ax = fig.add_subplot(111, projection='3d')
         ax.view_init(elev=5, azim=-180)
@@ -251,19 +251,19 @@ class LivoxInterface:
         plt.show()
 
     def test(self):
-        self.startUpdatingThread()
+        self.start_updating_thread()
         #for i in range(int(1e5)):
         #    print(f"{self.py_readCount} | {self.pyif_writeCount.value} | {len(self.integrateResult)}")
-        #self.endUpdatingThread()
-        #self.visualizeNowReslut3d()
+        #self.end_updating_thread()
+        #self.visualize_now_result_3d()
         while not self.py_quit:
-            self.draw2dImage()
-            """ cv2.imshow("Livox test", self.draw2dImage())
+            self.draw_2d_image()
+            """ cv2.imshow("Livox test", self.draw_2d_image())
             #print(f"{self.py_readCount} | {self.pyif_writeCount.value} | {len(self.integrateResult)}")
             if cv2.waitKey(1) & 0xFF == 27:  # 按下 ESC 键退出
                 break """
 
     def stop(self):
-        """停止后台更新/渲染线程，供程序退出前调用（随后应调用 pyif_Uninit）"""
+        """停止后台更新/渲染线程，供程序退出前调用（随后应调用 pyif_uninit）"""
         self.py_quit = True
-        self.endUpdatingThread()
+        self.end_updating_thread()

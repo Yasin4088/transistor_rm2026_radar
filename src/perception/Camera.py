@@ -18,6 +18,7 @@ class Camera:
         self._tlayerType = MV_USB_DEVICE
         self._cam = MvCamera()
         self._camera_index = camera_index
+        # 相机分辨率
         self._width = 4024
         self._height = 3036
 

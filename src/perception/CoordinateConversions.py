@@ -41,7 +41,7 @@ class CoordinateConverter:
             print("!!!")
             for y in range(1024):
                 for x in range(1024):
-                    x_origin, y_origin = radToPix(*newPixToRad(x, y))
+                    x_origin, y_origin = rad_to_pix(*new_pix_to_rad(x, y))
                     map_x[y, x] = x_origin
                     map_y[y, x] = y_origin
                 print(x_origin, y_origin)
@@ -49,10 +49,10 @@ class CoordinateConverter:
             np.save("map_y", map_y) """
             map_x = np.load(os.path.join(CONFIG_DIR, "map_x.npy"))
             map_y = np.load(os.path.join(CONFIG_DIR, "map_y.npy"))
-            def mapToRad(image):
+            def map_to_rad(image):
                 mapped_img = cv2.remap(image, map_x, map_y, interpolation=cv2.INTER_LINEAR)
                 return mapped_img
-            self.mapToRad = mapToRad
+            self.map_to_rad = map_to_rad
             def get_target_positions_and_draw(img2, livoxInterface, custom_car_boxes):
                 position_results = self.get_target_positions(livoxInterface, custom_car_boxes)
                 for class_index in range(13):
@@ -85,7 +85,7 @@ class CoordinateConverter:
                 return position_results
             self.get_target_positions_and_draw = get_target_positions_and_draw
 
-    def pixToRad(self, u, v): # 原像素点坐标
+    def pix_to_rad(self, u, v): # 原像素点坐标
         # 去畸变后的像素点坐标
         undistorted_points = cv2.undistortPoints(np.array([[[u, v]]], dtype=np.float32), self.K, self.D)
         # 获取去畸变后的规范化坐标
@@ -96,7 +96,7 @@ class CoordinateConverter:
         #print(np.array([yaw_rad, pitch_rad]))
         return np.array([yaw_rad, pitch_rad])
 
-    def radToPix(self, yaw_rad, pitch_rad):
+    def rad_to_pix(self, yaw_rad, pitch_rad):
         # 计算规范化坐标
         x_prime = np.tan(yaw_rad)
         y_prime = -np.tan(pitch_rad)*np.sqrt(x_prime**2 + 1)
@@ -108,20 +108,20 @@ class CoordinateConverter:
         u, v = pixel_coords[0][0]
         return np.array([u, v])
 
-    def newPixToRad(self, u, v, image_size = (1024, 1024)):
+    def new_pix_to_rad(self, u, v, image_size = (1024, 1024)):
         return np.array([(u/image_size[0]-0.5)*1.2287117934040082+self.rad_bais[0], -(v/image_size[0]-0.5)*1.2287117934040082+self.rad_bais[1]])
 
-    def radToNewPix(self, yaw_rad, pitch_rad, image_size = (1024, 1024)):
+    def rad_to_new_pix(self, yaw_rad, pitch_rad, image_size = (1024, 1024)):
         result = np.array([((yaw_rad-self.rad_bais[0])/1.2287117934040082+0.5)*image_size[0], (-(pitch_rad-self.rad_bais[1])/1.2287117934040082+0.5)*image_size[1]])
         return result
 
-    def radToCamXYZ(self, yaw, pitch, r):
+    def rad_to_cam_xyz(self, yaw, pitch, r):
         x = r * np.cos(yaw) * np.cos(pitch)     # 向前
         y = r * -np.sin(yaw) * np.cos(pitch)    # 向左
         z = r * np.sin(pitch)                   # 向上
         return np.array([x, y, z])
 
-    def globalXYZToCamXYZ(self, x, y, z):
+    def global_xyz_to_cam_xyz(self, x, y, z):
         #平移
         x1, y1, z1 = np.array([x, y, z]) - self.cam_position
         #yaw
@@ -142,7 +142,7 @@ class CoordinateConverter:
         result = np.array([x_result, y_result, z_result])
         return result
 
-    def camXYZToGlobalXYZ(self, x, y, z):
+    def cam_xyz_to_global_xyz(self, x, y, z):
         #roll
         roll = self.cam_orientation[2]
         x1 = x
@@ -177,7 +177,7 @@ class CoordinateConverter:
                 [center[0], center[1]-half_h]
             ], dtype=np.float64)
 
-            rads = np.array([self.pixToRad(*pt) for pt in pts], dtype=np.float64)
+            rads = np.array([self.pix_to_rad(*pt) for pt in pts], dtype=np.float64)
             rad_center = np.average(rads, axis=0)
             rad_half_w = (rads[2,0] - rads[0,0]) / 2
             rad_half_h = (rads[3,1] - rads[1,1]) / 2
@@ -185,10 +185,10 @@ class CoordinateConverter:
             points_in_range = livoxInterface.get_points_in_range(rad_center, rad_half_w, rad_half_h)
             target_distance = np.median(points_in_range[:,2]) # 相当于中值滤波
 
-            target_position_cam = self.radToCamXYZ(rad_center[0], rad_center[1], target_distance)
-            target_position_global = self.camXYZToGlobalXYZ(*target_position_cam)
+            target_position_cam = self.rad_to_cam_xyz(rad_center[0], rad_center[1], target_distance)
+            target_position_global = self.cam_xyz_to_global_xyz(*target_position_cam)
 
-            transformed_center = np.array(self.radToNewPix(*rad_center), dtype=np.int32)
+            transformed_center = np.array(self.rad_to_new_pix(*rad_center), dtype=np.int32)
             result = {
                 "global_position" : target_position_global,
                 "camera_position" : target_position_cam,

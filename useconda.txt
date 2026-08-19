@@ -1,2 +1,0 @@
-conda create -n yolov12_forRadar python=3.12
-conda activate yolov12_forRadar

@@ -42,9 +42,9 @@ def main():
     communicator = None
     try:
         livoxInterface = LivoxInterface()
-        livoxInterface.pyif_Init()
+        livoxInterface.pyif_init()
         #livoxInterface.test()
-        #livoxInterface.pyif_Uninit()
+        #livoxInterface.pyif_uninit()
         livoxThread = threading.Thread(target=livoxInterface.test, daemon=True)
         livoxThread.start()
 
@@ -104,10 +104,10 @@ def main():
 
                 img_radar = livoxInterface.image2dResult[0]
                 img_radar_mask = livoxInterface.image2dResult[1]
-                img_mapToRad = cv2.resize(coordinateConverter.mapToRad(annotated_img), (1024, 1024))
-                cv2.copyTo(img_radar, img_radar_mask, img_mapToRad)
+                img_map_to_rad = cv2.resize(coordinateConverter.map_to_rad(annotated_img), (1024, 1024))
+                cv2.copyTo(img_radar, img_radar_mask, img_map_to_rad)
 
-                position_results = coordinateConverter.get_target_positions_and_draw(img_mapToRad, livoxInterface, custom_car_boxes)
+                position_results = coordinateConverter.get_target_positions_and_draw(img_map_to_rad, livoxInterface, custom_car_boxes)
 
                 for yolo_cls in range(13):
                     cls_results = position_results[yolo_cls]
@@ -118,8 +118,8 @@ def main():
 
                 #annotated_img = cv2.resize(annotated_img, (1006, 759))
                 #cv2.imshow("Camera", annotated_img)
-                img_mapToRad = cv2.resize(img_mapToRad, (800, 800))
-                cv2.imshow("Camera mapToRad", img_mapToRad)
+                img_map_to_rad = cv2.resize(img_map_to_rad, (800, 800))
+                cv2.imshow("Camera mapToRad", img_map_to_rad)
 
             # 所有 cv2 窗口统一由主线程渲染（其他线程只负责生成图像），
             # 避免多线程同时调用 cv2.imshow/waitKey 导致 OpenCV 高GUI 卡死/崩溃
@@ -161,7 +161,7 @@ def main():
                 except Exception as e:
                     print(f"[main] Livox 线程等待失败: {e}")
             try:
-                livoxInterface.pyif_Uninit()
+                livoxInterface.pyif_uninit()
             except Exception as e:
                 print(f"[main] Livox 释放失败: {e}")
 
